@@ -1,0 +1,1175 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Chess Arena</title>
+
+<!-- Chess.js: xử lý luật cờ vua -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #10131c;
+  --panel: #1b2030;
+  --panel2: #252c3e;
+  --accent: #8b7cff;
+  --text: #f4f5ff;
+  --muted: #a5abc0;
+  --light: #e8e2d5;
+  --dark: #657b91;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 50% 0%, #30345b 0%, transparent 40%),
+    var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+}
+
+button, select, input { font: inherit; }
+
+header {
+  padding: 22px;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 2px;
+}
+
+header p {
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+
+.app {
+  width: min(1250px, 96%);
+  margin: auto;
+  display: grid;
+  grid-template-columns: minmax(300px, 720px) minmax(260px, 340px);
+  gap: 22px;
+  align-items: start;
+  padding-bottom: 30px;
+}
+
+.panel {
+  background: rgba(27, 32, 48, .94);
+  border: 1px solid #343b53;
+  border-radius: 16px;
+  padding: 17px;
+  box-shadow: 0 15px 45px #0005;
+}
+
+.board-area {
+  perspective: 1000px;
+  padding: 15px 12px 35px;
+}
+
+.board {
+  width: 100%;
+  max-width: 680px;
+  aspect-ratio: 1;
+  margin: auto;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  border: 9px solid #34303b;
+  border-radius: 9px;
+  overflow: hidden;
+  box-shadow:
+    0 20px 0 #17141b,
+    0 30px 45px #0009,
+    inset 0 0 15px #0008;
+  transform: rotateX(3deg);
+  transform-style: preserve-3d;
+}
+
+.square {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  aspect-ratio: 1;
+  transition: filter .12s;
+}
+
+.square.light { background: var(--light); }
+.square.dark { background: var(--dark); }
+.square:hover { filter: brightness(1.15); }
+
+.square.selected {
+  background: #d5cb48 !important;
+}
+
+.square.last {
+  background-image: linear-gradient(#e8d44b66, #e8d44b66);
+}
+
+.square.checked {
+  background: #e04d58 !important;
+}
+
+.piece {
+  font-family: "Segoe UI Symbol", "Arial Unicode MS", serif;
+  font-size: clamp(27px, 6vw, 65px);
+  line-height: 1;
+  z-index: 2;
+  cursor: grab;
+  filter: drop-shadow(0 3px 2px #0006);
+  transition: transform .12s;
+}
+
+.square:hover .piece { transform: translateY(-3px); }
+
+.white-piece {
+  color: #fff;
+  text-shadow: 0 2px 2px #222, 0 0 2px #222;
+}
+
+.black-piece {
+  color: #20232a;
+  text-shadow: 0 1px 1px #fff5;
+}
+
+.square.legal::after {
+  content: "";
+  position: absolute;
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  background: #17202b66;
+  z-index: 1;
+}
+
+.square.capture::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 5px solid #e04d5888;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.coordinate {
+  position: absolute;
+  font-size: 10px;
+  font-weight: bold;
+  opacity: .65;
+  pointer-events: none;
+}
+
+.coordinate.file { bottom: 2px; right: 4px; }
+.coordinate.rank { top: 2px; left: 4px; }
+
+.status {
+  margin-top: 14px;
+  background: var(--panel2);
+  border-radius: 10px;
+  padding: 13px;
+  text-align: center;
+  font-weight: bold;
+  min-height: 44px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #b9b2ff;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.field { margin-bottom: 15px; }
+
+.field label {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+
+select, input[type="range"] {
+  width: 100%;
+}
+
+select {
+  background: #111522;
+  color: white;
+  border: 1px solid #424a62;
+  border-radius: 8px;
+  padding: 11px;
+  outline: none;
+}
+
+input[type="range"] { accent-color: var(--accent); }
+
+.btn {
+  border: 0;
+  border-radius: 9px;
+  padding: 11px 13px;
+  color: white;
+  background: #343b52;
+  cursor: pointer;
+  transition: .15s;
+  font-weight: bold;
+}
+
+.btn:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #7968ff, #a16bff);
+}
+
+.btn.danger { background: #a43f50; }
+
+.buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.buttons .wide { grid-column: 1 / -1; }
+
+.sound-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.sound-row input { accent-color: var(--accent); }
+
+.history {
+  background: #111522;
+  border: 1px solid #343b53;
+  border-radius: 9px;
+  height: 190px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 35px 1fr 1fr;
+  padding: 7px 5px;
+  border-bottom: 1px solid #ffffff0d;
+  font-size: 13px;
+}
+
+.history-row span:first-child { color: #9c91ff; }
+
+.captured {
+  min-height: 35px;
+  font-size: 21px;
+  letter-spacing: 2px;
+  overflow-wrap: anywhere;
+}
+
+.player {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--panel2);
+  border-radius: 9px;
+}
+
+.player small { color: var(--muted); }
+
+.clock {
+  font-size: 20px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 14px;
+}
+
+@media (max-width: 800px) {
+  .app { grid-template-columns: 1fr; }
+  .board-area { padding: 5px 0 25px; }
+  .panel { padding: 13px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>♟ 3D CHESS ARENA</h1>
+  <p>Play against AI or challenge your friends</p>
+</header>
+
+<main class="app">
+
+  <section>
+    <div class="player">
+      <div>
+        <strong id="topName">Đối thủ</strong><br>
+        <small id="topColor">Đen</small>
+      </div>
+      <div class="clock" id="topClock">∞</div>
+    </div>
+
+    <div class="board-area">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="status" id="status">Đang chờ bắt đầu...</div>
+
+    <div class="player" style="margin-top:12px">
+      <div>
+        <strong id="bottomName">Bạn</strong><br>
+        <small id="bottomColor">Trắng</small>
+      </div>
+      <div class="clock" id="bottomClock">∞</div>
+    </div>
+
+    <div class="panel" style="margin-top:15px">
+      <div class="section-title">Quân đã bị ăn</div>
+      <div class="captured" id="capturedWhite">⚪ </div>
+      <div class="captured" id="capturedBlack">⚫ </div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div class="section-title">⚙ Cài đặt trận đấu</div>
+
+    <div class="field">
+      <label>Chế độ chơi</label>
+      <select id="mode">
+        <option value="ai">Người chơi vs AI</option>
+        <option value="local">2 người chơi cùng máy</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Bạn cầm quân</label>
+      <select id="side">
+        <option value="w">Trắng</option>
+        <option value="b">Đen</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Độ khó AI</label>
+      <select id="difficulty">
+        <option value="1">Dễ</option>
+        <option value="2">Trung bình</option>
+        <option value="3" selected>Khó</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Thời gian mỗi bên</label>
+      <select id="timeControl">
+        <option value="0">Không giới hạn</option>
+        <option value="180">3 phút</option>
+        <option value="300">5 phút</option>
+        <option value="600" selected>10 phút</option>
+        <option value="900">15 phút</option>
+      </select>
+    </div>
+
+    <div class="buttons">
+      <button class="btn primary wide" id="newGame">♟ Trận đấu mới</button>
+      <button class="btn" id="undo">↶ Hoàn tác</button>
+      <button class="btn" id="flip">⇅ Lật bàn cờ</button>
+    </div>
+
+    <hr style="border-color:#343b53; margin:20px 0">
+
+    <div class="section-title">🔊 Sound meme</div>
+
+    <div class="sound-row">
+      <label for="soundToggle">Bật âm thanh</label>
+      <input type="checkbox" id="soundToggle" checked>
+    </div>
+
+    <div class="field">
+      <label>Âm lượng: <span id="volumeText">80%</span></label>
+      <input type="range" id="volume" min="0" max="1" step="0.05" value="0.8">
+    </div>
+
+    <button class="btn" id="testSound" style="width:100%">▶ Thử âm thanh</button>
+
+    <hr style="border-color:#343b53; margin:20px 0">
+
+    <div class="section-title">📜 Lịch sử nước đi</div>
+    <div class="history" id="history"></div>
+
+    <p class="note">
+      Luật cờ vua được xử lý bởi Chess.js. AI sử dụng thuật toán
+      Minimax kết hợp Alpha-Beta. Cần kết nối Internet để tải thư viện.
+    </p>
+  </aside>
+
+</main>
+
+<script>
+"use strict";
+
+// ===============================
+// 1. KHỞI TẠO
+// ===============================
+
+const game = new Chess();
+
+const $ = id => document.getElementById(id);
+
+let selectedSquare = null;
+let legalMoves = [];
+let flipped = false;
+let playerColor = "w";
+let gameMode = "ai";
+let aiThinking = false;
+let gameEnded = false;
+
+let clocks = { w: 600, b: 600 };
+let clockInterval = null;
+let lastMove = null;
+
+const files = ["a","b","c","d","e","f","g","h"];
+
+const symbols = {
+  wk: "♔", wq: "♕", wr: "♖", wb: "♗", wn: "♘", wp: "♙",
+  bk: "♚", bq: "♛", br: "♜", bb: "♝", bn: "♞", bp: "♟"
+};
+
+const pieceValues = {
+  p: 100,
+  n: 320,
+  b: 335,
+  r: 500,
+  q: 900,
+  k: 20000
+};
+
+// ===============================
+// 2. ÂM THANH MP3
+// ===============================
+
+const sounds = {};
+
+const soundNames = [
+  "move", "capture", "check",
+  "checkmate", "win", "lose", "draw"
+];
+
+soundNames.forEach(name => {
+  sounds[name] = new Audio("sounds/" + name + ".mp3");
+  sounds[name].preload = "auto";
+});
+
+function playMeme(name) {
+  if (!$("soundToggle").checked) return;
+
+  const audio = sounds[name];
+  if (!audio) return;
+
+  audio.pause();
+  audio.currentTime = 0;
+  audio.volume = Number($("volume").value);
+
+  audio.play().catch(() => {
+    console.log("Không phát được âm thanh:", name);
+  });
+}
+
+$("volume").addEventListener("input", () => {
+  $("volumeText").textContent =
+    Math.round(Number($("volume").value) * 100) + "%";
+});
+
+$("testSound").addEventListener("click", () => {
+  playMeme("move");
+});
+
+// ===============================
+// 3. VẼ BÀN CỜ
+// ===============================
+
+function renderBoard() {
+  const boardElement = $("board");
+  boardElement.innerHTML = "";
+
+  const board = game.board();
+
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+
+      const realRow = flipped ? 7 - row : row;
+      const realCol = flipped ? 7 - col : col;
+
+      const squareName =
+        files[realCol] + (8 - realRow);
+
+      const piece = board[realRow][realCol];
+
+      const square = document.createElement("div");
+      square.className =
+        "square " +
+        ((realRow + realCol) % 2 === 0 ? "light" : "dark");
+
+      square.dataset.square = squareName;
+
+      if (selectedSquare === squareName) {
+        square.classList.add("selected");
+      }
+
+      if (
+        lastMove &&
+        (lastMove.from === squareName ||
+         lastMove.to === squareName)
+      ) {
+        square.classList.add("last");
+      }
+
+      if (
+        piece &&
+        piece.type === "k" &&
+        piece.color === game.turn() &&
+        game.in_check()
+      ) {
+        square.classList.add("checked");
+      }
+
+      const moveHere = legalMoves.find(m => m.to === squareName);
+
+      if (moveHere) {
+        square.classList.add(
+          piece ? "capture" : "legal"
+        );
+      }
+
+      if (piece) {
+        const span = document.createElement("span");
+        span.className = "piece " +
+          (piece.color === "w" ? "white-piece" : "black-piece");
+
+        span.textContent = symbols[piece.color + piece.type];
+        square.appendChild(span);
+      }
+
+      if (col === 0) {
+        const rank = document.createElement("span");
+        rank.className = "coordinate rank";
+        rank.textContent = 8 - realRow;
+        rank.style.color =
+          (realRow + realCol) % 2 === 0 ? "#657b91" : "#e8e2d5";
+        square.appendChild(rank);
+      }
+
+      if (row === 7) {
+        const file = document.createElement("span");
+        file.className = "coordinate file";
+        file.textContent = files[realCol];
+        file.style.color =
+          (realRow + realCol) % 2 === 0 ? "#657b91" : "#e8e2d5";
+        square.appendChild(file);
+      }
+
+      square.addEventListener("click", () => {
+        onSquareClick(squareName);
+      });
+
+      boardElement.appendChild(square);
+    }
+  }
+}
+
+// ===============================
+// 4. CHỌN VÀ DI CHUYỂN QUÂN
+// ===============================
+
+function onSquareClick(square) {
+  if (gameEnded || aiThinking) return;
+
+  if (
+    gameMode === "ai" &&
+    game.turn() !== playerColor
+  ) return;
+
+  const piece = game.get(square);
+
+  if (selectedSquare) {
+    const move = legalMoves.find(m => m.to === square);
+
+    if (move) {
+      makeMove(selectedSquare, square);
+      selectedSquare = null;
+      legalMoves = [];
+      renderBoard();
+      return;
+    }
+  }
+
+  if (piece && piece.color === game.turn()) {
+    selectedSquare = square;
+    legalMoves = game.moves({
+      square: square,
+      verbose: true
+    });
+  } else {
+    selectedSquare = null;
+    legalMoves = [];
+  }
+
+  renderBoard();
+}
+
+// ===============================
+// 5. THỰC HIỆN NƯỚC ĐI
+// ===============================
+
+function makeMove(from, to, promotion = "q") {
+  let move;
+
+  try {
+    move = game.move({
+      from,
+      to,
+      promotion
+    });
+  } catch (e) {
+    move = null;
+  }
+
+  if (!move) return false;
+
+  lastMove = { from, to };
+
+  if (move.captured) {
+    playMeme("capture");
+  } else {
+    playMeme("move");
+  }
+
+  updateHistory();
+  updateCaptured();
+  renderBoard();
+  checkGameState();
+
+  if (!gameEnded && game.in_check()) {
+    playMeme("check");
+  }
+
+  updateStatus();
+  updatePlayerNames();
+
+  if (
+    !gameEnded &&
+    gameMode === "ai" &&
+    game.turn() !== playerColor
+  ) {
+    scheduleAI();
+  }
+
+  return true;
+}
+
+// ===============================
+// 6. AI MINIMAX
+// ===============================
+
+function evaluateBoard() {
+  if (game.in_checkmate()) {
+    return game.turn() === "w" ? -100000 : 100000;
+  }
+
+  if (game.in_draw()) return 0;
+
+  let score = 0;
+  const board = game.board();
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[r][c];
+      if (!piece) continue;
+
+      let value = pieceValues[piece.type];
+
+      // Thưởng vị trí trung tâm cho các quân
+      const centerDistance =
+        Math.abs(3.5 - r) + Math.abs(3.5 - c);
+
+      if (piece.type === "p") {
+        value += (piece.color === "w" ? 6 - r : r - 1) * 8;
+      }
+
+      if (["n", "b"].includes(piece.type)) {
+        value += (7 - centerDistance) * 5;
+      }
+
+      if (piece.type === "q") {
+        value += (7 - centerDistance) * 2;
+      }
+
+      score += piece.color === "w" ? value : -value;
+    }
+  }
+
+  return score;
+}
+
+function minimax(depth, alpha, beta) {
+  if (depth <= 0 || game.game_over()) {
+    return evaluateBoard();
+  }
+
+  const moves = game.moves({ verbose: true });
+  const maximizing = game.turn() === "w";
+
+  if (maximizing) {
+    let best = -Infinity;
+
+    for (const move of moves) {
+      game.move(move);
+      const score = minimax(depth - 1, alpha, beta);
+      game.undo();
+
+      best = Math.max(best, score);
+      alpha = Math.max(alpha, score);
+
+      if (beta <= alpha) break;
+    }
+
+    return best;
+  } else {
+    let best = Infinity;
+
+    for (const move of moves) {
+      game.move(move);
+      const score = minimax(depth - 1, alpha, beta);
+      game.undo();
+
+      best = Math.min(best, score);
+      beta = Math.min(beta, score);
+
+      if (beta <= alpha) break;
+    }
+
+    return best;
+  }
+}
+
+function chooseAIMove() {
+  const depth = Number($("difficulty").value);
+  const moves = game.moves({ verbose: true });
+
+  if (!moves.length) return null;
+
+  const maximizing = game.turn() === "w";
+  let bestScore = maximizing ? -Infinity : Infinity;
+  let bestMoves = [];
+
+  for (const move of moves) {
+    game.move(move);
+
+    const score = minimax(
+      depth - 1,
+      -Infinity,
+      Infinity
+    );
+
+    game.undo();
+
+    const better = maximizing
+      ? score > bestScore
+      : score < bestScore;
+
+    if (better) {
+      bestScore = score;
+      bestMoves = [move];
+    } else if (score === bestScore) {
+      bestMoves.push(move);
+    }
+  }
+
+  return bestMoves[
+    Math.floor(Math.random() * bestMoves.length)
+  ];
+}
+
+// ===============================
+// 7. AI DI CHUYỂN
+// ===============================
+
+function scheduleAI() {
+  if (gameEnded || aiThinking) return;
+
+  aiThinking = true;
+  $("status").textContent = "🤖 AI đang suy nghĩ...";
+
+  setTimeout(() => {
+    if (gameEnded) {
+      aiThinking = false;
+      return;
+    }
+
+    const move = chooseAIMove();
+    aiThinking = false;
+
+    if (move) {
+      makeMove(move.from, move.to, move.promotion || "q");
+    }
+  }, 200);
+}
+
+// ===============================
+// 8. KIỂM TRA KẾT THÚC
+// ===============================
+
+function checkGameState() {
+  if (!game.game_over()) return;
+
+  gameEnded = true;
+  clearInterval(clockInterval);
+
+  if (game.in_checkmate()) {
+    playMeme("checkmate");
+
+    const winner = game.turn() === "w" ? "Đen" : "Trắng";
+
+    if (gameMode === "ai") {
+      const humanWon =
+        (winner === "Trắng" && playerColor === "w") ||
+        (winner === "Đen" && playerColor === "b");
+
+      setTimeout(() => {
+        playMeme(humanWon ? "win" : "lose");
+      }, 800);
+
+      $("status").textContent =
+        humanWon ? "🏆 BẠN ĐÃ THẮNG!" : "💀 BẠN ĐÃ THUA!";
+    } else {
+      $("status").textContent =
+        "🏆 " + winner + " thắng!";
+    }
+
+  } else if (game.in_draw()) {
+    playMeme("draw");
+    $("status").textContent = "🤝 VÁN CỜ HÒA!";
+  }
+}
+
+// ===============================
+// 9. LỊCH SỬ
+// ===============================
+
+function updateHistory() {
+  const history = game.history();
+  const container = $("history");
+
+  container.innerHTML = "";
+
+  for (let i = 0; i < history.length; i += 2) {
+    const row = document.createElement("div");
+    row.className = "history-row";
+
+    const number = document.createElement("span");
+    number.textContent = (i / 2 + 1) + ".";
+
+    const white = document.createElement("span");
+    white.textContent = history[i] || "";
+
+    const black = document.createElement("span");
+    black.textContent = history[i + 1] || "";
+
+    row.append(number, white, black);
+    container.appendChild(row);
+  }
+
+  container.scrollTop = container.scrollHeight;
+}
+
+// ===============================
+// 10. QUÂN BỊ ĂN
+// ===============================
+
+function updateCaptured() {
+  const initial = {
+    p: 8, n: 2, b: 2, r: 2, q: 1
+  };
+
+  const remaining = {
+    w: { p: 0, n: 0, b: 0, r: 0, q: 0 },
+    b: { p: 0, n: 0, b: 0, r: 0, q: 0 }
+  };
+
+  const board = game.board();
+
+  for (const row of board) {
+    for (const piece of row) {
+      if (piece && piece.type !== "k") {
+        remaining[piece.color][piece.type]++;
+      }
+    }
+  }
+
+  let whiteLost = "";
+  let blackLost = "";
+
+  for (const type of ["q", "r", "b", "n", "p"]) {
+    for (
+      let i = 0;
+      i < initial[type] - remaining.w[type];
+      i++
+    ) {
+      whiteLost += symbols["w" + type];
+    }
+
+    for (
+      let i = 0;
+      i < initial[type] - remaining.b[type];
+      i++
+    ) {
+      blackLost += symbols["b" + type];
+    }
+  }
+
+  $("capturedWhite").textContent = "Trắng mất: " + (whiteLost || "—");
+  $("capturedBlack").textContent = "Đen mất: " + (blackLost || "—");
+}
+
+// ===============================
+// 11. TRẠNG THÁI
+// ===============================
+
+function updateStatus() {
+  if (gameEnded) return;
+
+  if (aiThinking) return;
+
+  if (game.in_check()) {
+    $("status").textContent =
+      "⚠ " + (game.turn() === "w" ? "Trắng" : "Đen") +
+      " đang bị chiếu!";
+  } else {
+    $("status").textContent =
+      "Đến lượt " +
+      (game.turn() === "w" ? "Trắng" : "Đen");
+  }
+}
+
+function updatePlayerNames() {
+  if (gameMode === "local") {
+    $("topName").textContent = "Người chơi 2";
+    $("bottomName").textContent = "Người chơi 1";
+    $("topColor").textContent = "Đen";
+    $("bottomColor").textContent = "Trắng";
+  } else {
+    $("topName").textContent =
+      playerColor === "w" ? "🤖 AI" : "👤 Bạn";
+
+    $("bottomName").textContent =
+      playerColor === "w" ? "👤 Bạn" : "🤖 AI";
+
+    $("topColor").textContent =
+      playerColor === "w" ? "Đen" : "Trắng";
+
+    $("bottomColor").textContent =
+      playerColor === "w" ? "Trắng" : "Đen";
+  }
+}
+
+// ===============================
+// 12. ĐỒNG HỒ
+// ===============================
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+
+  return String(m).padStart(2, "0") + ":" +
+         String(s).padStart(2, "0");
+}
+
+function updateClocks() {
+  if (Number($("timeControl").value) === 0) {
+    $("topClock").textContent = "∞";
+    $("bottomClock").textContent = "∞";
+    return;
+  }
+
+  const topColor =
+    gameMode === "local" ? "b" :
+    playerColor === "w" ? "b" : "w";
+
+  const bottomColor =
+    gameMode === "local" ? "w" :
+    playerColor;
+
+  $("topClock").textContent = formatTime(clocks[topColor]);
+  $("bottomClock").textContent = formatTime(clocks[bottomColor]);
+}
+
+function startClock() {
+  clearInterval(clockInterval);
+
+  if (Number($("timeControl").value) === 0) {
+    updateClocks();
+    return;
+  }
+
+  clockInterval = setInterval(() => {
+    if (gameEnded || aiThinking) return;
+
+    const color = game.turn();
+    clocks[color]--;
+
+    updateClocks();
+
+    if (clocks[color] <= 0) {
+      clocks[color] = 0;
+      gameEnded = true;
+      clearInterval(clockInterval);
+
+      const winner = color === "w" ? "Đen" : "Trắng";
+
+      if (gameMode === "ai") {
+        const humanWon =
+          (winner === "Trắng" && playerColor === "w") ||
+          (winner === "Đen" && playerColor === "b");
+
+        playMeme(humanWon ? "win" : "lose");
+        $("status").textContent =
+          humanWon ? "🏆 BẠN THẮNG - HẾT GIỜ AI!" :
+                     "⏰ HẾT GIỜ! BẠN THUA!";
+      } else {
+        $("status").textContent =
+          "⏰ Hết giờ! " + winner + " thắng!";
+      }
+    }
+  }, 1000);
+}
+
+// ===============================
+// 13. TRẬN ĐẤU MỚI
+// ===============================
+
+function newGame() {
+  game.reset();
+
+  selectedSquare = null;
+  legalMoves = [];
+  lastMove = null;
+  flipped = false;
+  aiThinking = false;
+  gameEnded = false;
+
+  gameMode = $("mode").value;
+  playerColor = $("side").value;
+
+  const time = Number($("timeControl").value);
+  clocks = { w: time, b: time };
+
+  if (gameMode === "local") {
+    playerColor = "w";
+  }
+
+  updatePlayerNames();
+  updateCaptured();
+  updateHistory();
+  updateClocks();
+  renderBoard();
+  startClock();
+  updateStatus();
+
+  // Nếu người chơi chọn Đen, AI đi trước
+  if (gameMode === "ai" && playerColor === "b") {
+    scheduleAI();
+  }
+}
+
+// ===============================
+// 14. HOÀN TÁC
+// ===============================
+
+function undoMove() {
+  if (aiThinking) return;
+
+  if (game.history().length === 0) return;
+
+  game.undo();
+
+  // Nếu đấu AI, hoàn tác cả lượt AI và lượt người
+  if (
+    gameMode === "ai" &&
+    game.history().length > 0
+  ) {
+    game.undo();
+  }
+
+  selectedSquare = null;
+  legalMoves = [];
+  lastMove = null;
+  gameEnded = false;
+
+  updateHistory();
+  updateCaptured();
+  renderBoard();
+  updateStatus();
+  updateClocks();
+}
+
+// ===============================
+// 15. NÚT ĐIỀU KHIỂN
+// ===============================
+
+$("newGame").addEventListener("click", newGame);
+$("undo").addEventListener("click", undoMove);
+
+$("flip").addEventListener("click", () => {
+  flipped = !flipped;
+  renderBoard();
+});
+
+$("mode").addEventListener("change", () => {
+  const isLocal = $("mode").value === "local";
+  $("side").disabled = isLocal;
+  $("difficulty").disabled = isLocal;
+});
+
+$("side").addEventListener("change", () => {
+  // Chọn màu trước khi bắt đầu ván mới
+});
+
+// ===============================
+// 16. KHỞI ĐỘNG
+// ===============================
+
+if (typeof Chess === "undefined") {
+  $("status").textContent =
+    "Không tải được Chess.js. Hãy kiểm tra Internet.";
+} else {
+  $("mode").dispatchEvent(new Event("change"));
+  newGame();
+}
+</script>
+
+</body>
+</html>
